@@ -2,8 +2,10 @@ import os
 import io
 import cv2
 import time
+import json
 import base64
 import argparse
+import simplekml
 import numpy as np
 
 from PIL import Image
@@ -85,8 +87,41 @@ def find_sidebar_button(driver, canvas):
     return col_offset, row_offset, is_open
 
 
-def update_kml(driver, canvas, file_path):
-    with open(file_path, mode="r") as file:
+def json_to_kml(json_path, kml_path):
+    with open(json_path, "r") as json_file:
+        json_data = json.load(json_file)
+
+    kml = simplekml.Kml()
+
+    # points
+    for point in json_data["points"]:
+        kml.newpoint(
+            name=point["name"],
+            description=point["description"],
+            coords=[(point["longitude"], point["latitude"])],
+        )
+
+    # routes
+    for route in json_data["routes"]:
+        line = kml.newlinestring(
+            name=route["name"],
+            description=route["description"],
+            coords=[
+                (point["longitude"], point["latitude"]) for point in route["points"]
+            ],
+        )
+
+        line.style.linestyle.color = "FFFEE7A6"
+        line.style.linestyle.width = 4
+
+    kml.save(kml_path)
+
+
+def update_kml(driver, canvas, json_path):
+    kml_path = json_path.replace(".json", ".kml")
+    json_to_kml(json_path, kml_path)
+
+    with open(kml_path, mode="r") as file:
         content = file.read()
         b64_content = base64.b64encode(content.encode()).decode()
 
@@ -99,7 +134,7 @@ def update_kml(driver, canvas, file_path):
         ).click().perform()
 
     driver.execute_script(
-        JS_DRAG_AND_DROP.format(b64_content, os.path.basename(file_path)), canvas
+        JS_DRAG_AND_DROP.format(b64_content, os.path.basename(kml_path)), canvas
     )
 
     if not is_open:
@@ -111,13 +146,7 @@ def update_kml(driver, canvas, file_path):
     ).click().perform()
 
 
-def main():
-    # default_data_folder = os.path.join(
-    #     os.getenv("LOCALAPPDATA"), "Microsoft", "Edge", "User Data", "Default"
-    # )
-    # options = webdriver.EdgeOptions()
-    # options.add_argument(f"user-data-dir={default_data_folder}")
-
+def start_browser():
     local_user_data_folder = os.path.join(os.getcwd(), "Local")
     if not os.path.exists(local_user_data_folder):
         os.makedirs(local_user_data_folder)
@@ -134,20 +163,27 @@ def main():
     WebDriverWait(driver, 30).until(lambda driver: driver.current_url.find("@") != -1)
 
     canvas = driver.find_element(By.ID, "earth-canvas")
-    canvas.click()
-    # Open the grid view
-    # ActionChains(driver).key_down(Keys.CONTROL).send_keys("g").key_up(
-    #     Keys.CONTROL
-    # ).perform()
+    canvas.click().perform()
 
-    # Load the KML file
-    file_path = r"C:\Users\cuber\Desktop\TestKML.kml"
-    update_kml(driver, canvas, file_path)
+    return driver, canvas
+
+
+def main():
+    driver, canvas = start_browser()
+
+    json_path = r"data-template.json"
+    update_kml(driver, canvas, json_path)
 
     # pause
     input("Press Enter to continue...")
     driver.quit()
 
 
+def tui_demo():
+    pass
+
+
+
+
 if __name__ == "__main__":
-    main()
+    tui_demo()

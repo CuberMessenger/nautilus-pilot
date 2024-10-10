@@ -1,0 +1,26 @@
+{
+    "points": [
+        {
+            "name": "point_name",
+            "description": "point_description",
+            "longitude": 0.0,
+            "latitude": 0.0
+        }
+    ],
+    "routes": [
+        {
+            "name": "route_name",
+            "description": "route_description",
+            "points": [
+                {
+                    "longitude": 10.0,
+                    "latitude": -10.0
+                },
+                {
+                    "longitude": -10.0,
+                    "latitude": 10.0
+                }
+            ]
+        }
+    ]
+}
