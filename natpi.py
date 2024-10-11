@@ -8,6 +8,8 @@ import argparse
 import simplekml
 import numpy as np
 
+from blessed import Terminal
+
 from PIL import Image
 
 from selenium import webdriver
@@ -180,7 +182,11 @@ def main():
 
 
 def tui_demo():
-    pass
+    terminal = Terminal()
+
+    print(terminal.home + terminal.clear)
+    print(terminal.move_x(terminal.width // 2 - 1))
+    print(terminal.move_y(terminal.height // 2 - 1))
 
 
 
