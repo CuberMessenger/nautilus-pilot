@@ -215,16 +215,7 @@ class Wheelhouse:
         self.resize_thread = threading.Thread(target=self.resize_listener)
 
         # New pin dialog
-        self.new_pin_active_line = 0
-        self.new_pin_offsets = [0, 13, 13]
-        self.new_pin_num_lines = 3
-        self.new_pin_dirty = [True, True, True]
-        self.new_pin_heads = ["Name:      ", "Latitude:  ", "Longitude: "]
-        self.new_pin_lines = [
-            "______________",
-            "___.__°, __' N",
-            "___.__°, __' E",
-        ]
+        self.reset_new_pin_dialog()
 
         # New way point dialog
         pass
@@ -233,6 +224,18 @@ class Wheelhouse:
         pass
 
         self.measure_terminal()
+
+    def reset_new_pin_dialog(self):
+        self.new_pin_active_line = 0
+        self.new_pin_offsets = [0, 0, 0]
+        self.new_pin_num_lines = 3
+        self.new_pin_dirty = [True, True, True]
+        self.new_pin_heads = ["Name:      ", "Latitude:  ", "Longitude: "]
+        self.new_pin_lines = [
+            "______________",
+            "___.__°, __' N",
+            "___.__°, __' E",
+        ]
 
     def resize_listener(self):
         while self.listen_flag:
@@ -340,9 +343,9 @@ class Wheelhouse:
             )
 
         helpers = [
-            f"{self.terminal.skyblue}ENTER     - goto the next line{self.terminal.normal}",
-            f"{self.terminal.skyblue}BACKSPACE - goto the previous line{self.terminal.normal}",
-            f"{self.terminal.skyblue}UP/DOWN   - switch N/S and E/W{self.terminal.normal}",
+            f"{self.terminal.skyblue}UP/DOWN   - move{self.terminal.normal}",
+            f"{self.terminal.skyblue}TAB       - switch N/S and E/W{self.terminal.normal}",
+            f"{self.terminal.skyblue}ENTER     - save{self.terminal.normal}",
             f"{self.terminal.skyblue}ESC       - cancel{self.terminal.normal}",
         ]
 
@@ -408,7 +411,7 @@ class Wheelhouse:
             return
 
     def new_pin_handler(self, key):
-        if key.code == self.terminal.KEY_ENTER:
+        if key.code == self.terminal.KEY_DOWN:
             self.new_pin_dirty[self.new_pin_active_line] = True
             self.new_pin_active_line = min(
                 self.new_pin_active_line + 1, self.new_pin_num_lines - 1
@@ -417,7 +420,7 @@ class Wheelhouse:
             self.draw_new_pin_dialog()
             return
 
-        if key.code == self.terminal.KEY_BACKSPACE:
+        if key.code == self.terminal.KEY_UP:
             self.new_pin_dirty[self.new_pin_active_line] = True
             self.new_pin_active_line = max(self.new_pin_active_line - 1, 0)
             self.new_pin_dirty[self.new_pin_active_line] = True
@@ -425,11 +428,12 @@ class Wheelhouse:
             return
 
         if key.code == self.terminal.KEY_ESCAPE:
+            self.reset_new_pin_dialog()
             self.state = Wheelhouse.State.MENU
             self.draw_all()
             return
 
-        if key.code == self.terminal.KEY_UP or key.code == self.terminal.KEY_DOWN:
+        if key.code == self.terminal.KEY_TAB:
             if (self.new_pin_active_line == 1) and (
                 self.new_pin_offsets[1] == len(self.new_pin_lines[1]) - 1
             ):
@@ -451,6 +455,16 @@ class Wheelhouse:
                 self.new_pin_dirty[2] = True
                 self.draw_new_pin_dialog()
                 return
+            
+        if key.code == self.terminal.KEY_ENTER:
+            # save
+            self.reset_new_pin_dialog()
+            self.state = Wheelhouse.State.MENU
+            self.draw_all()
+            return
+        
+        # numbers or letters
+        
 
     def sail(self):
         try:
