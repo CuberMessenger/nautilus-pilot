@@ -523,8 +523,15 @@ class Wheelhouse:
 
         if self.new_pin_active_line == 1 or self.new_pin_active_line == 2:
             line_index = self.new_pin_active_line
+            external_offset = self.new_pin_offsets[line_index][0]
+            internal_offset = self.new_pin_offsets[line_index][external_offset + 1]
             if key in "0123456789":
-                pass
+                if external_offset == 0:
+                    pass
+                if external_offset == 1:
+                    pass
+                if external_offset == 2:
+                    pass
             if key == ".":
                 pass
             if key == self.terminal.KEY_RIGHT:
