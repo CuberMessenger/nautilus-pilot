@@ -186,6 +186,15 @@ class NautilusPilot:
         self.canvas = None
 
 
+def replace_at_index(s, index, replacement):
+    index %= len(s)
+    if index == 0:
+        return replacement + s[1:]
+    if index == len(s) - 1:
+        return s[:-1] + replacement
+    return s[:index] + replacement + s[index + 1 :]
+
+
 class Wheelhouse:
     class State(Enum):
         MENU = auto()
@@ -227,7 +236,10 @@ class Wheelhouse:
 
     def reset_new_pin_dialog(self):
         self.new_pin_active_line = 0
-        self.new_pin_offsets = [0, 0, 0]
+        self.new_pin_offsets = [0, [0, 0, 0, 0], [0, 0, 0, 0]]
+        """
+        [external_offset, internal_offset_0, internal_offset_1, internal_offset_2]
+        """
         self.new_pin_num_lines = 3
         self.new_pin_dirty = [True, True, True]
         self.new_pin_heads = ["Name:      ", "Latitude:  ", "Longitude: "]
@@ -332,8 +344,18 @@ class Wheelhouse:
 
             head = self.new_pin_heads[line_index]
             line = self.new_pin_lines[line_index]
-            if self.new_pin_active_line == line_index:
-                offset = self.new_pin_offsets[line_index]
+            offset = self.new_pin_offsets[line_index]
+            if self.new_pin_active_line == line_index and line_index == 0:
+                offset = min(offset, len(line) - 1)
+                line = f"{line[:offset]}{self.terminal.reverse}{line[offset]}{self.terminal.normal}{line[offset + 1:]}"
+            if self.new_pin_active_line == line_index and line_index != 0:
+                external_offset = offset[0]
+                if external_offset == 0:
+                    offset = 2
+                if external_offset == 1:
+                    offset = 5
+                if external_offset == 2:
+                    offset = 10
                 line = f"{line[:offset]}{self.terminal.reverse}{line[offset]}{self.terminal.normal}{line[offset + 1:]}"
 
             print(
@@ -434,37 +456,83 @@ class Wheelhouse:
             return
 
         if key.code == self.terminal.KEY_TAB:
-            if (self.new_pin_active_line == 1) and (
-                self.new_pin_offsets[1] == len(self.new_pin_lines[1]) - 1
-            ):
+            if self.new_pin_active_line == 1:
                 if self.new_pin_lines[1][-1] == "N":
-                    self.new_pin_lines[1] = self.new_pin_lines[1][:-1] + "S"
+                    self.new_pin_lines[1] = replace_at_index(
+                        self.new_pin_lines[1], -1, "S"
+                    )
                 else:
-                    self.new_pin_lines[1] = self.new_pin_lines[1][:-1] + "N"
+                    self.new_pin_lines[1] = replace_at_index(
+                        self.new_pin_lines[1], -1, "N"
+                    )
                 self.new_pin_dirty[1] = True
                 self.draw_new_pin_dialog()
                 return
 
-            if (self.new_pin_active_line == 2) and (
-                self.new_pin_offsets[2] == len(self.new_pin_lines[2]) - 1
-            ):
+            if self.new_pin_active_line == 2:
                 if self.new_pin_lines[2][-1] == "E":
-                    self.new_pin_lines[2] = self.new_pin_lines[2][:-1] + "W"
+                    self.new_pin_lines[2] = replace_at_index(
+                        self.new_pin_lines[2], -1, "W"
+                    )
                 else:
-                    self.new_pin_lines[2] = self.new_pin_lines[2][:-1] + "E"
+                    self.new_pin_lines[2] = replace_at_index(
+                        self.new_pin_lines[2], -1, "E"
+                    )
                 self.new_pin_dirty[2] = True
                 self.draw_new_pin_dialog()
                 return
-            
+
         if key.code == self.terminal.KEY_ENTER:
             # save
             self.reset_new_pin_dialog()
             self.state = Wheelhouse.State.MENU
             self.draw_all()
             return
-        
+
         # numbers or letters
-        
+        # if True:
+        #     print(
+        #         self.terminal.move_xy(self.options_x, self.options_y + 10)
+        #         + f"{key} - is sequence {key.is_sequence}"
+        #     )
+        #     return
+
+        if self.new_pin_active_line == 0:
+            if key.code == self.terminal.KEY_BACKSPACE:
+                if self.new_pin_offsets[0] > 0:
+                    self.new_pin_offsets[0] -= 1
+                    self.new_pin_lines[0] = replace_at_index(
+                        self.new_pin_lines[0], self.new_pin_offsets[0], "_"
+                    )
+                    self.new_pin_dirty[0] = True
+                    self.draw_new_pin_dialog()
+                    return
+
+            if (
+                key
+                in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-."
+            ):
+                if self.new_pin_offsets[0] < len(self.new_pin_lines[0]):
+                    self.new_pin_lines[0] = replace_at_index(
+                        self.new_pin_lines[0], self.new_pin_offsets[0], key
+                    )
+                    self.new_pin_offsets[0] += 1
+                    self.new_pin_dirty[0] = True
+                    self.draw_new_pin_dialog()
+                    return
+
+        if self.new_pin_active_line == 1 or self.new_pin_active_line == 2:
+            line_index = self.new_pin_active_line
+            if key in "0123456789":
+                pass
+            if key == ".":
+                pass
+            if key == self.terminal.KEY_RIGHT:
+                pass
+            if key == self.terminal.KEY_LEFT:
+                pass
+            if key == self.terminal.KEY_BACKSPACE:
+                pass
 
     def sail(self):
         try:
