@@ -1,5 +1,6 @@
 Screen {
     align: center top;
+    layers: default sky;
 }
 
 #title {
@@ -10,9 +11,10 @@ Screen {
     margin-bottom: 1;
 }
 
-Vertical {
+#main-container {
     align: center top;
     width: 80%;
+    min-width: 40;
     height: auto;
     margin-top: 1;
     margin-bottom: 1;
@@ -34,8 +36,15 @@ RichLog {
     border: round white;
 }
 
-Button {
+.main-buttons {
     text-align: left;
     width: 36;
     padding-left: 10;
+}
+
+NewPinForm {
+    layer: sky;
+    width: 60;
+    height: auto;
+    border: round white;
 }
