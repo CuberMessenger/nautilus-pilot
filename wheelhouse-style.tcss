@@ -1,0 +1,41 @@
+Screen {
+    align: center top;
+}
+
+#title {
+    text-align: center;
+    width: 80%;
+    background: $foreground 10%;
+    height: 1;
+    margin-bottom: 1;
+}
+
+Vertical {
+    align: center top;
+    width: 80%;
+    height: auto;
+    margin-top: 1;
+    margin-bottom: 1;
+    border: round white;
+}
+
+Status {
+    text-align: center;
+    width: 36;
+    height: 3;
+    border: ascii white;
+    margin-bottom: 1;
+}
+
+RichLog {
+    align: center bottom;
+    height: 10;
+    width: 80%;
+    border: round white;
+}
+
+Button {
+    text-align: left;
+    width: 36;
+    padding-left: 10;
+}
