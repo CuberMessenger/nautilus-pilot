@@ -1,6 +1,6 @@
 Screen {
     align: center top;
-    layers: default sky;
+    layers: sea sky space;
 }
 
 #title {
@@ -44,7 +44,45 @@ RichLog {
 
 NewPinForm {
     layer: sky;
-    width: 60;
-    height: auto;
+    margin-top: 6;
+    width: 40;
+    height: 24;
+    padding: 1;
     border: round white;
+}
+
+Horizontal {
+    align: center middle;
+    width: 100%;
+}
+
+.pin-form-label {
+    margin-top: 1;
+}
+
+#pin-name-input {
+    width: 24;
+}
+
+#pin-latitude-input {
+    width: 24;
+}
+
+#pin-longitude-input {
+    width: 24;
+}
+
+#pin-add-to-route-checkbox {
+    width: 34;
+    text-align: center;
+}
+
+#message-label {
+    layer: space;
+    height: 3;
+    width: 36;
+    margin-top: 3;
+    text-align: center;
+    border: round white;
+    color: skyblue;
 }

@@ -1,11 +1,13 @@
 import os
+import time
 
 from enum import Enum, auto
 
 from natpi import NautilusPilot
 
+from textual import work
 from textual.app import App
-from textual.widgets import Button, Static, RichLog, Input, Label, Checkbox
+from textual.widgets import Button, Static, RichLog, Input, Label, Checkbox, Switch
 from textual.containers import Vertical, Horizontal
 from textual.color import Color
 from textual.reactive import reactive
@@ -28,25 +30,35 @@ class Wheelhouse(App):
 
         def render(self):
             return self.status_string()
+        
+    class ItudeInput(Static):
+        def compose(self):
+            yield Horizontal(
+                Input(type="number", max_length="5"),
+                Label("°, "),
+                Input(type="number", max_length="2"),
+                Label("' "),
+                Switch(name="N", value=False)
+            )
+
 
     class NewPinForm(Static):
         def compose(self):
             yield Vertical(
                 Horizontal(
-                    Label("Name:"),
-                    Input(id="pin-name-input"),
+                    Label("     Name:", classes="pin-form-label"),
+                    Input(id="pin-name-input", type="text"),
                 ),
                 Horizontal(
-                    Label("Latitude:"),
-                    Input(id="pin-latitude-input"),
+                    Label(" Latitude:", classes="pin-form-label"),
+                    Wheelhouse.ItudeInput(id="pin-latitude-input"),
                 ),
                 Horizontal(
-                    Label("Longitude:"),
+                    Label("Longitude:", classes="pin-form-label"),
                     Input(id="pin-longitude-input"),
                 ),
                 Horizontal(
-                    Label("Add to route:"),
-                    Checkbox(id="pin-add-to-route-checkbox"),
+                    Checkbox(label="Add to route", id="pin-add-to-route-checkbox"),
                 ),
                 Horizontal(
                     Button("🌟 Add", id="add-pin-button", variant="success"),
@@ -96,6 +108,7 @@ class Wheelhouse(App):
             id="main-container",
         )
         yield Wheelhouse.NewPinForm()
+        yield Label(id="message-label")
         yield RichLog()
 
     def on_mount(self):
@@ -108,6 +121,9 @@ class Wheelhouse(App):
         self.delete_pin = self.query_one("#delete-pin-button")
         self.leave = self.query_one("#leave-button")
         self.main_focusables = [self.switch, self.new_pin, self.delete_pin, self.leave]
+
+        self.message_label = self.query_one("#message-label")
+        self.message_label.visible = False
 
         self.rich_log = self.query_one(RichLog)
         self.rich_log.can_focus = False
@@ -141,6 +157,12 @@ class Wheelhouse(App):
             + self.delete_pin_form_focusables
         )
         self.focusables = self.main_focusables
+
+    async def show_message(self, message, mississippi=0.75):
+        self.message_label.render = lambda: message
+        self.message_label.visible = True
+        time.sleep(mississippi)
+        self.message_label.visible = False
 
     def change_state(self, new_state):
         self.state = new_state
@@ -195,8 +217,18 @@ class Wheelhouse(App):
                     if current_focus == len(self.new_pin_form_focusables) - 2:
                         self.next_focus()
 
-    def on_button_pressed(self, event):
+    ### new pin form funtions #################################################################
+    def clear_new_pin_form(self):
+        self.name_input.value = ""
+        self.latitude_input.value = ""
+        self.longitude_input.value = ""
+        self.add_to_route_checkbox.value = False
+
+    ###########################################################################################
+
+    async def on_button_pressed(self, event):
         match event.button:
+            # main
             case self.switch:
                 self.status.is_online = not self.status.is_online
             case self.new_pin:
@@ -206,6 +238,23 @@ class Wheelhouse(App):
                 self.rich_log.write("Delete pin button pressed!")
             case self.leave:
                 self.rich_log.write("Leave button pressed!")
+            # new pin form
+            case self.add_pin_button:
+                # TODO: verify input and add pin
+                success = True
+
+                self.clear_new_pin_form()
+                self.new_pin_form.visible = False
+                self.change_state(Wheelhouse.State.MAIN)
+
+                if success:
+                    self.run_worker(self.show_message("Pin added!"), thread=True)
+                else:
+                    self.run_worker(self.show_message("Bad input!"), thread=True)
+            case self.cancel_pin_button:
+                self.clear_new_pin_form()
+                self.new_pin_form.visible = False
+                self.change_state(Wheelhouse.State.MAIN)
             case _:
                 self.rich_log.write("Unknown button pressed!")
 
