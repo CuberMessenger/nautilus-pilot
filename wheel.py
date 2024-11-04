@@ -30,17 +30,59 @@ class Wheelhouse(App):
 
         def render(self):
             return self.status_string()
-        
+
     class ItudeInput(Static):
+        DEFAULT_CSS = """
+        .degree-input {
+            width: 12;
+        }
+
+        .minute-input {
+            width: 12;
+            padding-left: 6;
+        }
+
+        .direction-switch {
+            width: 10;
+        }
+
+        .itude-input-label {
+            padding-top: 1;
+        }
+        """
+
+        def __init__(self, type="latitude", id=None):
+            super().__init__(id=id)
+
+            if type == "latitude":
+                self.direction_a = "N"
+                self.direction_b = "S"
+            elif type == "longitude":
+                self.direction_a = "E"
+                self.direction_b = "W"
+            else:
+                raise ValueError("type must be 'latitude' or 'longitude'")
+
         def compose(self):
             yield Horizontal(
-                Input(type="number", max_length="5"),
-                Label("°, "),
-                Input(type="number", max_length="2"),
-                Label("' "),
-                Switch(name="N", value=False)
+                Input(type="number", max_length=5, classes="degree-input"),
+                Label("degrees", classes="itude-input-label"),
+                Input(type="number", max_length=2, classes="minute-input"),
+                Label("minutes", classes="itude-input-label"),
+                Switch(value=False, classes="direction-switch"),
+                Label(
+                    self.direction_a,
+                    classes="itude-input-label",
+                    id="itude-switch-label",
+                ),
             )
 
+        def on_switch_changed(self, event):
+            label = self.query_one("#itude-switch-label")
+            label.render = lambda: (
+                self.direction_b if event.value else self.direction_a
+            )
+            label.refresh()
 
     class NewPinForm(Static):
         def compose(self):
@@ -51,11 +93,11 @@ class Wheelhouse(App):
                 ),
                 Horizontal(
                     Label(" Latitude:", classes="pin-form-label"),
-                    Wheelhouse.ItudeInput(id="pin-latitude-input"),
+                    Wheelhouse.ItudeInput(type="latitude", id="pin-latitude-input"),
                 ),
                 Horizontal(
                     Label("Longitude:", classes="pin-form-label"),
-                    Input(id="pin-longitude-input"),
+                    Wheelhouse.ItudeInput(type="longitude", id="pin-longitude-input"),
                 ),
                 Horizontal(
                     Checkbox(label="Add to route", id="pin-add-to-route-checkbox"),
