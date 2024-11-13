@@ -12,7 +12,6 @@ from textual.containers import Vertical, Horizontal
 from textual.color import Color
 from textual.reactive import reactive
 
-
 class Wheelhouse(App):
     class State(Enum):
         MAIN = auto()
@@ -34,12 +33,12 @@ class Wheelhouse(App):
     class ItudeInput(Static):
         DEFAULT_CSS = """
         .degree-input {
-            width: 12;
+            width: 10;
         }
 
         .minute-input {
-            width: 12;
-            padding-left: 6;
+            width: 10;
+            padding-left: 4;
         }
 
         .direction-switch {
@@ -54,6 +53,8 @@ class Wheelhouse(App):
         def __init__(self, type="latitude", id=None):
             super().__init__(id=id)
 
+            self.type = type
+
             if type == "latitude":
                 self.direction_a = "N"
                 self.direction_b = "S"
@@ -65,11 +66,27 @@ class Wheelhouse(App):
 
         def compose(self):
             yield Horizontal(
-                Input(type="number", max_length=5, classes="degree-input"),
+                Input(
+                    type="number",
+                    max_length=3,
+                    classes="degree-input",
+                    id=f"{self.type}-degree-input",
+                    valid_empty=True,
+                ),
                 Label("degrees", classes="itude-input-label"),
-                Input(type="number", max_length=2, classes="minute-input"),
+                Input(
+                    type="number",
+                    max_length=2,
+                    classes="minute-input",
+                    id=f"{self.type}-minute-input",
+                    valid_empty=True,
+                ),
                 Label("minutes", classes="itude-input-label"),
-                Switch(value=False, classes="direction-switch"),
+                Switch(
+                    value=False,
+                    classes="direction-switch",
+                    id=f"{self.type}-direction-switch",
+                ),
                 Label(
                     self.direction_a,
                     classes="itude-input-label",
@@ -85,8 +102,49 @@ class Wheelhouse(App):
             label.refresh()
 
     class NewPinForm(Static):
+        DEFAULT_CSS = """
+        .pin-form-label {
+            margin-top: 1;
+        }
+
+        #pin-name-input {
+            width: 44;
+            margin-right: 2;
+        }
+
+        #pin-latitude-input {
+            width: 46;
+        }
+
+        #pin-longitude-input {
+            width: 46;
+        }
+
+        #pin-add-to-route-checkbox {
+            width: 44;
+            margin-left: 8;
+            text-align: center;
+        }
+
+        #add-pin-button {
+            width: 21;
+            margin-left: 9;
+        }
+
+        #cancel-pin-button {
+            width: 21;
+        }
+
+        .itude-input {
+            height: 3;
+        }
+        """
+
         def compose(self):
             yield Vertical(
+                Horizontal(
+                    Label("          *** Add a new pin! ***"),
+                ),
                 Horizontal(
                     Label("     Name:", classes="pin-form-label"),
                     Input(id="pin-name-input", type="text"),
@@ -100,7 +158,9 @@ class Wheelhouse(App):
                     Wheelhouse.ItudeInput(type="longitude", id="pin-longitude-input"),
                 ),
                 Horizontal(
-                    Checkbox(label="Add to route", id="pin-add-to-route-checkbox"),
+                    Checkbox(
+                        label="Add to route", id="pin-add-to-route-checkbox", value=True
+                    ),
                 ),
                 Horizontal(
                     Button("🌟 Add", id="add-pin-button", variant="success"),
@@ -109,9 +169,45 @@ class Wheelhouse(App):
                 id="new-pin-form",
             )
 
-    CSS_PATH = "wheelhouse-style.tcss"
+    class DeletePinForm(Static):
+        DEFAULT_CSS = """
+        .pin-form-label {
+            margin-top: 1;
+        }
+
+        #delete-name-input {
+            width: 44;
+            margin-right: 2;
+        }
+
+        #delete-button {
+            width: 21;
+            margin-left: 9;
+        }
+
+        #cancel-delete-button {
+            width: 21;
+        }
+        """
+
+        def compose(self):
+            yield Vertical(
+                Horizontal(
+                    Label("          *** Delete a pin! ***"),
+                ),
+                Horizontal(
+                    Label("     Name:", classes="pin-form-label"),
+                    Input(id="delete-name-input", type="text"),
+                ),
+                Horizontal(
+                    Button("🌟 Delete", id="delete-button", variant="error"),
+                    Button("🌟 Cancel", id="cancel-delete-button", variant="warning"),
+                ),
+            )
 
     is_online = reactive(False)
+
+    CSS_PATH = "wheelhouse-style.tcss"
 
     def __init__(self):
         super().__init__()
@@ -150,6 +246,7 @@ class Wheelhouse(App):
             id="main-container",
         )
         yield Wheelhouse.NewPinForm()
+        yield Wheelhouse.DeletePinForm()
         yield Label(id="message-label")
         yield RichLog()
 
@@ -175,23 +272,44 @@ class Wheelhouse(App):
         self.new_pin_form = self.query_one(Wheelhouse.NewPinForm)
         self.new_pin_form.visible = False
         self.name_input = self.query_one("#pin-name-input")
-        self.latitude_input = self.query_one("#pin-latitude-input")
-        self.longitude_input = self.query_one("#pin-longitude-input")
+
+        self.latitude_degress_input = self.query_one("#latitude-degree-input")
+        self.latitude_minutes_input = self.query_one("#latitude-minute-input")
+        self.latitude_direction_switch = self.query_one("#latitude-direction-switch")
+
+        self.longitude_degress_input = self.query_one("#longitude-degree-input")
+        self.longitude_minutes_input = self.query_one("#longitude-minute-input")
+        self.longitude_direction_switch = self.query_one("#longitude-direction-switch")
+
         self.add_to_route_checkbox = self.query_one("#pin-add-to-route-checkbox")
         self.add_pin_button = self.query_one("#add-pin-button")
         self.cancel_pin_button = self.query_one("#cancel-pin-button")
 
         self.new_pin_form_focusables = [
             self.name_input,
-            self.latitude_input,
-            self.longitude_input,
+            self.latitude_degress_input,
+            self.latitude_minutes_input,
+            self.latitude_direction_switch,
+            self.longitude_degress_input,
+            self.longitude_minutes_input,
+            self.longitude_direction_switch,
             self.add_to_route_checkbox,
             self.add_pin_button,
             self.cancel_pin_button,
         ]
 
         ### delete pin form
-        self.delete_pin_form_focusables = []
+        self.delete_pin_form = self.query_one(Wheelhouse.DeletePinForm)
+        self.delete_pin_form.visible = False
+        self.delete_name_input = self.query_one("#delete-name-input")
+        self.delete_button = self.query_one("#delete-button")
+        self.cancel_delete_button = self.query_one("#cancel-delete-button")
+
+        self.delete_pin_form_focusables = [
+            self.delete_name_input,
+            self.delete_button,
+            self.cancel_delete_button,
+        ]
 
         self.all_focusables = (
             self.main_focusables
@@ -207,15 +325,33 @@ class Wheelhouse(App):
         self.message_label.visible = False
 
     def change_state(self, new_state):
+        old_state = self.state
         self.state = new_state
-        if self.state == Wheelhouse.State.MAIN:
-            self.focusables = self.main_focusables
-        elif self.state == Wheelhouse.State.NEW_PIN:
-            self.focusables = self.new_pin_form_focusables
-        elif self.state == Wheelhouse.State.DELETE_PIN:
-            self.focusables = self.delete_pin_form_focusables
+
+        match new_state:
+            case Wheelhouse.State.MAIN:
+                self.focusables = self.main_focusables
+            case Wheelhouse.State.NEW_PIN:
+                self.focusables = self.new_pin_form_focusables
+            case Wheelhouse.State.DELETE_PIN:
+                self.focusables = self.delete_pin_form_focusables
         self.update_focusable()
-        self.focusables[0].focus()
+
+        match (old_state, new_state):
+            case (Wheelhouse.State.MAIN, Wheelhouse.State.NEW_PIN):
+                self.new_pin_form.visible = True
+                self.name_input.focus()
+            case (Wheelhouse.State.MAIN, Wheelhouse.State.DELETE_PIN):
+                self.delete_pin_form.visible = True
+                self.delete_name_input.focus()
+            case (Wheelhouse.State.NEW_PIN, Wheelhouse.State.MAIN):
+                self.new_pin_form.visible = False
+                self.clear_new_pin_form()
+                self.new_pin.focus()
+            case (Wheelhouse.State.DELETE_PIN, Wheelhouse.State.MAIN):
+                self.delete_pin_form.visible = False
+                self.clear_delete_pin_form()
+                self.delete_pin.focus()
 
     def update_focusable(self):
         for widget in self.all_focusables:
@@ -245,26 +381,105 @@ class Wheelhouse(App):
 
         match event.key:
             case "up":
-                self.previous_focus()
+                if self.state == Wheelhouse.State.NEW_PIN:
+                    go_up_cheatsheet = [0, 0, 0, 0, 1, 2, 3, 4, 7, 7]
+                    current_focus = self.current_focus()
+                    self.focusables[go_up_cheatsheet[current_focus]].focus()
+                elif self.state == Wheelhouse.State.DELETE_PIN:
+                    current_focus = self.current_focus()
+                    if current_focus == len(self.delete_pin_form_focusables) - 1:
+                        self.delete_name_input.focus()
+                else:
+                    self.previous_focus()
+
             case "down":
-                self.next_focus()
+                if self.state == Wheelhouse.State.NEW_PIN:
+                    go_down_cheatsheet = [1, 4, 5, 6, 7, 7, 7, 8, 9, 9]
+                    current_focus = self.current_focus()
+                    self.focusables[go_down_cheatsheet[current_focus]].focus()
+                else:
+                    self.next_focus()
+
             case "left":
                 if self.state == Wheelhouse.State.NEW_PIN:
                     current_focus = self.current_focus()
-                    if current_focus == len(self.new_pin_form_focusables) - 1:
-                        self.previous_focus()
+                    self.previous_focus()
+
+                if self.state == Wheelhouse.State.DELETE_PIN:
+                    current_focus = self.current_focus()
+                    self.previous_focus()
             case "right":
                 if self.state == Wheelhouse.State.NEW_PIN:
                     current_focus = self.current_focus()
-                    if current_focus == len(self.new_pin_form_focusables) - 2:
-                        self.next_focus()
+                    self.next_focus()
+
+                if self.state == Wheelhouse.State.DELETE_PIN:
+                    current_focus = self.current_focus()
+                    self.next_focus()
+            case "escape":
+                if self.state == Wheelhouse.State.NEW_PIN:
+                    self.change_state(Wheelhouse.State.MAIN)
+                    return
+                if self.state == Wheelhouse.State.DELETE_PIN:
+                    self.change_state(Wheelhouse.State.MAIN)
+                    return
 
     ### new pin form funtions #################################################################
     def clear_new_pin_form(self):
         self.name_input.value = ""
-        self.latitude_input.value = ""
-        self.longitude_input.value = ""
+        self.latitude_degress_input.value = ""
+        self.latitude_minutes_input.value = ""
+        self.latitude_direction_switch.value = False
+        self.longitude_degress_input.value = ""
+        self.longitude_minutes_input.value = ""
+        self.longitude_direction_switch.value = False
         self.add_to_route_checkbox.value = False
+
+        self.name_input.refresh()
+        self.latitude_degress_input.refresh()
+        self.latitude_minutes_input.refresh()
+        self.latitude_direction_switch.refresh()
+        self.longitude_degress_input.refresh()
+        self.longitude_minutes_input.refresh()
+        self.longitude_direction_switch.refresh()
+        self.add_to_route_checkbox.refresh()
+
+    def add_pin(self):
+        try:
+            name = self.name_input.value
+            if name is None:
+                name = ""
+
+            latitude = 0
+            latitude += float(self.latitude_degress_input.value)
+            latitude += float(self.latitude_minutes_input.value) / 60
+            if latitude < 0 or latitude > 90:
+                raise ValueError("Latitude out of range!")
+
+            longitude = 0
+            longitude += float(self.longitude_degress_input.value)
+            longitude += float(self.longitude_minutes_input.value) / 60
+            if longitude < 0 or longitude > 180:
+                raise ValueError("Longitude out of range!")
+
+            add_to_route = self.add_to_route_checkbox.value
+            if add_to_route is None:
+                add_to_route = False
+
+            self.natpi.add_point(name, latitude, longitude, add_to_route)
+
+        except Exception:
+            return False
+        else:
+            return True
+
+    ###########################################################################################
+    ### delete pin form funtions ##############################################################
+
+    def clear_delete_pin_form(self):
+        self.delete_name_input.value = ""
+
+        self.delete_name_input.refresh()
 
     ###########################################################################################
 
@@ -274,19 +489,15 @@ class Wheelhouse(App):
             case self.switch:
                 self.status.is_online = not self.status.is_online
             case self.new_pin:
-                self.new_pin_form.visible = True
                 self.change_state(Wheelhouse.State.NEW_PIN)
             case self.delete_pin:
-                self.rich_log.write("Delete pin button pressed!")
+                self.change_state(Wheelhouse.State.DELETE_PIN)
             case self.leave:
                 self.rich_log.write("Leave button pressed!")
             # new pin form
             case self.add_pin_button:
-                # TODO: verify input and add pin
-                success = True
+                success = self.add_pin()
 
-                self.clear_new_pin_form()
-                self.new_pin_form.visible = False
                 self.change_state(Wheelhouse.State.MAIN)
 
                 if success:
@@ -294,8 +505,12 @@ class Wheelhouse(App):
                 else:
                     self.run_worker(self.show_message("Bad input!"), thread=True)
             case self.cancel_pin_button:
-                self.clear_new_pin_form()
-                self.new_pin_form.visible = False
+                self.change_state(Wheelhouse.State.MAIN)
+            # delete pin form
+            case self.delete_button:
+                # TODO: really search and delete and messaging
+                self.rich_log.write("Delete button pressed!")
+            case self.cancel_delete_button:
                 self.change_state(Wheelhouse.State.MAIN)
             case _:
                 self.rich_log.write("Unknown button pressed!")

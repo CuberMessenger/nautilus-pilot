@@ -48,9 +48,13 @@ class NautilusPilot:
         }});
     """
 
+    JSON_PATH = "data.json"
+
+    KML_PATH = "data.kml"
+
     @staticmethod
-    def json_to_kml(json_path, kml_path):
-        with open(json_path, "r") as json_file:
+    def update_kml():
+        with open(NautilusPilot.JSON_PATH, "r") as json_file:
             json_data = json.load(json_file)
 
         kml = simplekml.Kml()
@@ -63,18 +67,31 @@ class NautilusPilot:
             )
 
         # routes
-        for route in json_data["routes"]:
-            line = kml.newlinestring(
-                name=route["name"],
-                coords=[
-                    (point["longitude"], point["latitude"]) for point in route["points"]
-                ],
-            )
+        line = kml.newlinestring(
+            coords=[
+                (point["longitude"], point["latitude"])
+                for point in json_data["route_points"]
+            ],
+        )
 
-            line.style.linestyle.color = "FFFEE7A6"
-            line.style.linestyle.width = 4
+        line.style.linestyle.color = "FFFEE7A6"
+        line.style.linestyle.width = 4
 
-        kml.save(kml_path)
+        kml.save(NautilusPilot.KML_PATH)
+
+    @staticmethod
+    def add_point(name, latitude, longitude, add_to_route):
+        with open(NautilusPilot.JSON_PATH, "r") as json_file:
+            json_data = json.load(json_file)
+
+        point = {"name": name, "latitude": latitude, "longitude": longitude}
+
+        json_data["points"].append(point)
+        if add_to_route:
+            json_data["route_points"].append(point)
+
+        with open(NautilusPilot.JSON_PATH, "w") as json_file:
+            json.dump(json_data, json_file)
 
     def __init__(self):
         self.driver = None
@@ -121,11 +138,9 @@ class NautilusPilot:
         return col_offset, row_offset, is_open
 
     def update_kml(self):
-        json_path = r"data.json"
-        kml_path = r"data.kml"
-        NautilusPilot.json_to_kml(json_path, kml_path)
+        NautilusPilot.update_kml()
 
-        with open(kml_path, mode="r") as file:
+        with open(NautilusPilot.KML_PATH, mode="r") as file:
             content = file.read()
             b64_content = base64.b64encode(content.encode()).decode()
 
@@ -139,7 +154,7 @@ class NautilusPilot:
 
         self.driver.execute_script(
             NautilusPilot.JS_DRAG_AND_DROP.format(
-                b64_content, os.path.basename(kml_path)
+                b64_content, os.path.basename(NautilusPilot.KML_PATH)
             ),
             self.canvas,
         )

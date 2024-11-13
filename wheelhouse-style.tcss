@@ -1,6 +1,6 @@
 Screen {
     align: center top;
-    layers: sea sky space;
+    layers: sea mountain sky space;
 }
 
 #title {
@@ -43,10 +43,19 @@ RichLog {
 }
 
 NewPinForm {
+    layer: mountain;
+    margin-top: 6;
+    width: 64;
+    height: 23;
+    padding: 1;
+    border: round white;
+}
+
+DeletePinForm {
     layer: sky;
     margin-top: 6;
-    width: 70;
-    height: 24;
+    width: 64;
+    height: 13;
     padding: 1;
     border: round white;
 }
@@ -54,38 +63,6 @@ NewPinForm {
 Horizontal {
     align: center middle;
     width: 100%;
-}
-
-.pin-form-label {
-    margin-top: 1;
-}
-
-#pin-name-input {
-    width: 48;
-    margin-right: 2;
-}
-
-#pin-latitude-input {
-    width: 50;
-}
-
-#pin-longitude-input {
-    width: 50;
-}
-
-#pin-add-to-route-checkbox {
-    width: 48;
-    margin-left: 8;
-    text-align: center;
-}
-
-#add-pin-button {
-    width: 23;
-    margin-left: 9;
-}
-
-#cancel-pin-button {
-    width: 23;
 }
 
 #message-label {
@@ -96,8 +73,4 @@ Horizontal {
     text-align: center;
     border: round white;
     color: skyblue;
-}
-
-.itude-input {
-    height: 3;
 }
