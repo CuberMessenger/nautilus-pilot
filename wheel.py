@@ -16,7 +16,7 @@ class Wheelhouse(App):
     class State(Enum):
         MAIN = auto()
         NEW_PIN = auto()
-        DELETE_PIN = auto()
+        REMOVE_PIN = auto()
 
     class Status(Static):
         is_online = reactive(False)
@@ -169,23 +169,23 @@ class Wheelhouse(App):
                 id="new-pin-form",
             )
 
-    class DeletePinForm(Static):
+    class RemovePinForm(Static):
         DEFAULT_CSS = """
         .pin-form-label {
             margin-top: 1;
         }
 
-        #delete-name-input {
+        #remove-name-input {
             width: 44;
             margin-right: 2;
         }
 
-        #delete-button {
+        #remove-button {
             width: 21;
             margin-left: 9;
         }
 
-        #cancel-delete-button {
+        #cancel-remove-button {
             width: 21;
         }
         """
@@ -193,15 +193,15 @@ class Wheelhouse(App):
         def compose(self):
             yield Vertical(
                 Horizontal(
-                    Label("          *** Delete a pin! ***"),
+                    Label("          *** Remove a pin! ***"),
                 ),
                 Horizontal(
                     Label("     Name:", classes="pin-form-label"),
-                    Input(id="delete-name-input", type="text"),
+                    Input(id="remove-name-input", type="text"),
                 ),
                 Horizontal(
-                    Button("🌟 Delete", id="delete-button", variant="error"),
-                    Button("🌟 Cancel", id="cancel-delete-button", variant="warning"),
+                    Button("🌟 Remove", id="remove-button", variant="error"),
+                    Button("🌟 Cancel", id="cancel-remove-button", variant="warning"),
                 ),
             )
 
@@ -235,8 +235,8 @@ class Wheelhouse(App):
                 variant="primary",
             ),
             Button(
-                "🌟 Delete pin",
-                id="delete-pin-button",
+                "🌟 Remove pin",
+                id="remove-pin-button",
                 classes="main-buttons",
                 variant="primary",
             ),
@@ -246,7 +246,7 @@ class Wheelhouse(App):
             id="main-container",
         )
         yield Wheelhouse.NewPinForm()
-        yield Wheelhouse.DeletePinForm()
+        yield Wheelhouse.RemovePinForm()
         yield Label(id="message-label")
         yield RichLog()
 
@@ -257,9 +257,9 @@ class Wheelhouse(App):
 
         self.switch = self.query_one("#switch-button")
         self.new_pin = self.query_one("#new-pin-button")
-        self.delete_pin = self.query_one("#delete-pin-button")
+        self.remove_pin = self.query_one("#remove-pin-button")
         self.leave = self.query_one("#leave-button")
-        self.main_focusables = [self.switch, self.new_pin, self.delete_pin, self.leave]
+        self.main_focusables = [self.switch, self.new_pin, self.remove_pin, self.leave]
 
         self.message_label = self.query_one("#message-label")
         self.message_label.visible = False
@@ -298,23 +298,23 @@ class Wheelhouse(App):
             self.cancel_pin_button,
         ]
 
-        ### delete pin form
-        self.delete_pin_form = self.query_one(Wheelhouse.DeletePinForm)
-        self.delete_pin_form.visible = False
-        self.delete_name_input = self.query_one("#delete-name-input")
-        self.delete_button = self.query_one("#delete-button")
-        self.cancel_delete_button = self.query_one("#cancel-delete-button")
+        ### remove pin form
+        self.remove_pin_form = self.query_one(Wheelhouse.RemovePinForm)
+        self.remove_pin_form.visible = False
+        self.remove_name_input = self.query_one("#remove-name-input")
+        self.remove_button = self.query_one("#remove-button")
+        self.cancel_remove_button = self.query_one("#cancel-remove-button")
 
-        self.delete_pin_form_focusables = [
-            self.delete_name_input,
-            self.delete_button,
-            self.cancel_delete_button,
+        self.remove_pin_form_focusables = [
+            self.remove_name_input,
+            self.remove_button,
+            self.cancel_remove_button,
         ]
 
         self.all_focusables = (
             self.main_focusables
             + self.new_pin_form_focusables
-            + self.delete_pin_form_focusables
+            + self.remove_pin_form_focusables
         )
         self.focusables = self.main_focusables
 
@@ -333,25 +333,25 @@ class Wheelhouse(App):
                 self.focusables = self.main_focusables
             case Wheelhouse.State.NEW_PIN:
                 self.focusables = self.new_pin_form_focusables
-            case Wheelhouse.State.DELETE_PIN:
-                self.focusables = self.delete_pin_form_focusables
+            case Wheelhouse.State.REMOVE_PIN:
+                self.focusables = self.remove_pin_form_focusables
         self.update_focusable()
 
         match (old_state, new_state):
             case (Wheelhouse.State.MAIN, Wheelhouse.State.NEW_PIN):
                 self.new_pin_form.visible = True
                 self.name_input.focus()
-            case (Wheelhouse.State.MAIN, Wheelhouse.State.DELETE_PIN):
-                self.delete_pin_form.visible = True
-                self.delete_name_input.focus()
+            case (Wheelhouse.State.MAIN, Wheelhouse.State.REMOVE_PIN):
+                self.remove_pin_form.visible = True
+                self.remove_name_input.focus()
             case (Wheelhouse.State.NEW_PIN, Wheelhouse.State.MAIN):
                 self.new_pin_form.visible = False
                 self.clear_new_pin_form()
                 self.new_pin.focus()
-            case (Wheelhouse.State.DELETE_PIN, Wheelhouse.State.MAIN):
-                self.delete_pin_form.visible = False
-                self.clear_delete_pin_form()
-                self.delete_pin.focus()
+            case (Wheelhouse.State.REMOVE_PIN, Wheelhouse.State.MAIN):
+                self.remove_pin_form.visible = False
+                self.clear_remove_pin_form()
+                self.remove_pin.focus()
 
     def update_focusable(self):
         for widget in self.all_focusables:
@@ -385,10 +385,10 @@ class Wheelhouse(App):
                     go_up_cheatsheet = [0, 0, 0, 0, 1, 2, 3, 4, 7, 7]
                     current_focus = self.current_focus()
                     self.focusables[go_up_cheatsheet[current_focus]].focus()
-                elif self.state == Wheelhouse.State.DELETE_PIN:
+                elif self.state == Wheelhouse.State.REMOVE_PIN:
                     current_focus = self.current_focus()
-                    if current_focus == len(self.delete_pin_form_focusables) - 1:
-                        self.delete_name_input.focus()
+                    if current_focus == len(self.remove_pin_form_focusables) - 1:
+                        self.remove_name_input.focus()
                 else:
                     self.previous_focus()
 
@@ -405,7 +405,7 @@ class Wheelhouse(App):
                     current_focus = self.current_focus()
                     self.previous_focus()
 
-                if self.state == Wheelhouse.State.DELETE_PIN:
+                if self.state == Wheelhouse.State.REMOVE_PIN:
                     current_focus = self.current_focus()
                     self.previous_focus()
             case "right":
@@ -413,14 +413,14 @@ class Wheelhouse(App):
                     current_focus = self.current_focus()
                     self.next_focus()
 
-                if self.state == Wheelhouse.State.DELETE_PIN:
+                if self.state == Wheelhouse.State.REMOVE_PIN:
                     current_focus = self.current_focus()
                     self.next_focus()
             case "escape":
                 if self.state == Wheelhouse.State.NEW_PIN:
                     self.change_state(Wheelhouse.State.MAIN)
                     return
-                if self.state == Wheelhouse.State.DELETE_PIN:
+                if self.state == Wheelhouse.State.REMOVE_PIN:
                     self.change_state(Wheelhouse.State.MAIN)
                     return
 
@@ -474,12 +474,21 @@ class Wheelhouse(App):
             return True
 
     ###########################################################################################
-    ### delete pin form funtions ##############################################################
+    ### remove pin form funtions ##############################################################
 
-    def clear_delete_pin_form(self):
-        self.delete_name_input.value = ""
+    def clear_remove_pin_form(self):
+        self.remove_name_input.value = ""
 
-        self.delete_name_input.refresh()
+        self.remove_name_input.refresh()
+
+    def remove_pin(self):
+        try:
+            name = self.remove_name_input.value
+            
+        except Exception:
+            return False
+        else:
+            return True
 
     ###########################################################################################
 
@@ -490,8 +499,8 @@ class Wheelhouse(App):
                 self.status.is_online = not self.status.is_online
             case self.new_pin:
                 self.change_state(Wheelhouse.State.NEW_PIN)
-            case self.delete_pin:
-                self.change_state(Wheelhouse.State.DELETE_PIN)
+            case self.remove_pin:
+                self.change_state(Wheelhouse.State.REMOVE_PIN)
             case self.leave:
                 self.rich_log.write("Leave button pressed!")
             # new pin form
@@ -506,11 +515,11 @@ class Wheelhouse(App):
                     self.run_worker(self.show_message("Bad input!"), thread=True)
             case self.cancel_pin_button:
                 self.change_state(Wheelhouse.State.MAIN)
-            # delete pin form
-            case self.delete_button:
-                # TODO: really search and delete and messaging
-                self.rich_log.write("Delete button pressed!")
-            case self.cancel_delete_button:
+            # remove pin form
+            case self.remove_button:
+                # TODO: really search and remove and messaging
+                self.rich_log.write("Remove button pressed!")
+            case self.cancel_remove_button:
                 self.change_state(Wheelhouse.State.MAIN)
             case _:
                 self.rich_log.write("Unknown button pressed!")
