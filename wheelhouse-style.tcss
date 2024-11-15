@@ -55,7 +55,7 @@ RemovePinForm {
     layer: sky;
     margin-top: 6;
     width: 64;
-    height: 13;
+    height: 16;
     padding: 1;
     border: round white;
 }

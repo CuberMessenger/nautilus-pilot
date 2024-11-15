@@ -8,6 +8,7 @@ import simplekml
 import numpy as np
 
 from PIL import Image
+from time import sleep
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -86,24 +87,69 @@ class NautilusPilot:
 
         point = {"name": name, "latitude": latitude, "longitude": longitude}
 
-        json_data["points"].append(point)
-        if add_to_route:
+        if not add_to_route:
+            json_data["points"].append(point)
+        else:
             json_data["route_points"].append(point)
 
         with open(NautilusPilot.JSON_PATH, "w") as json_file:
             json.dump(json_data, json_file)
 
+    @staticmethod
+    def remove_point(name, from_route):
+        with open(NautilusPilot.JSON_PATH, "r") as json_file:
+            json_data = json.load(json_file)
+
+        if not from_route:
+            points = json_data["points"]
+        else:
+            points = json_data["route_points"]
+
+        if name == "":
+            # try to remove the last point
+            index = len(points) - 1
+            if index >= 0:
+                points.pop(index)
+                success = True
+                message = "Last pin removed!"
+            else:
+                success = False
+                message = "No pins to remove!"
+        if name != "":
+            # remove the last occurrence
+            index = None
+            for i, point in enumerate(reversed(points)):
+                if point["name"] == name:
+                    index = len(points) - 1 - i
+                    break
+
+            if index is None:
+                success = False
+                message = f"No such pin!"
+            else:
+                points.pop(index)
+                success = True
+                message = f"{name} removed!"
+
+        with open(NautilusPilot.JSON_PATH, "w") as json_file:
+            json.dump(json_data, json_file)
+
+        return success, message
+
     def __init__(self):
         self.driver = None
         self.canvas = None
 
-    def find_sidebar_button(self):
-        pixel_tolerance = 5
-        default_gray = np.array([70, 71, 68])
-
+    def screenshot(self):
         image_data = self.driver.get_screenshot_as_png()
         image = Image.open(io.BytesIO(image_data))
         image = np.array(image)
+
+        return image
+
+    def find_sidebar_button(self, image):
+        pixel_tolerance = 10
+        default_gray = np.array([70, 71, 68])
 
         height, width, _ = image.shape
         canvas_height, canvas_width = (
@@ -124,6 +170,9 @@ class NautilusPilot:
             if np.sum(np.abs(image[row, try_col] - default_gray)) < pixel_tolerance:
                 col = try_col
                 break
+            # image[row, try_col] = np.array([0, 255, 0])
+
+        # Image.fromarray(image).save("test-sidebar.png")
 
         if col == 0:
             raise Exception("Could not find the sidebar button!")
@@ -137,20 +186,79 @@ class NautilusPilot:
         row_offset = row - canvas_height // 2
         return col_offset, row_offset, is_open
 
-    def update_kml(self):
+    def find_hide_button(self, image):
+        pixel_tolerance = 10
+        dark_gray = np.array([31, 31, 31])
+        light_gray = np.array([233, 233, 233])
+        white = np.array([255, 255, 255])
+
+        height, width, _ = image.shape
+        canvas_height, canvas_width = (
+            self.canvas.size["height"],
+            self.canvas.size["width"],
+        )
+
+        top_bar_height = 72
+
+        col = 52
+        row = int(round((height - top_bar_height) / 2 + top_bar_height))
+        for offset in range(256):
+            if np.sum(np.abs(image[row + offset, col] - dark_gray)) < pixel_tolerance:
+                break
+            # image[row + offset, col] = np.array([255, 0, 0])
+        row += offset
+
+        for offset in range(512):
+            if np.sum(np.abs(image[row, col + offset] - white)) < pixel_tolerance:
+                break
+            # image[row, col + offset] = np.array([255, 0, 0])
+        col += offset
+
+        col -= 32
+
+        # length = 5
+        # image[row - length : row + length, col - length : col + length] = np.array([255, 0, 0])
+        # Image.fromarray(image).save("test-hide.png")
+
+        col = int(round(col * canvas_width / width))
+        row = int(round(row * canvas_height / height))
+
+        col_offset = col - canvas_width // 2
+        row_offset = row - canvas_height // 2
+
+        return col_offset, row_offset
+
+    def update(self, is_first=False):
+        if self.driver is None or self.canvas is None:
+            return
+
         NautilusPilot.update_kml()
 
         with open(NautilusPilot.KML_PATH, mode="r") as file:
             content = file.read()
             b64_content = base64.b64encode(content.encode()).decode()
 
-        col_offset, row_offset, is_open = self.find_sidebar_button()
+        image = self.screenshot()
+        col_offset, row_offset, is_open = self.find_sidebar_button(image)
 
         if not is_open:
             # Open the sidebar
             ActionChains(self.driver).move_to_element_with_offset(
                 self.canvas, col_offset, row_offset
             ).click().perform()
+            sleep(0.5)  # wait the sidebar fully open
+
+            image = self.screenshot()
+
+        if not is_first:
+            hide_col_offset, hide_row_offset = self.find_hide_button(image)
+            try:
+                # Try hide existing route
+                ActionChains(self.driver).move_to_element_with_offset(
+                    self.canvas, hide_col_offset, hide_row_offset
+                ).click().perform()
+            except:
+                pass
 
         self.driver.execute_script(
             NautilusPilot.JS_DRAG_AND_DROP.format(
@@ -159,8 +267,7 @@ class NautilusPilot:
             self.canvas,
         )
 
-        if not is_open:
-            col_offset, row_offset, is_open = self.find_sidebar_button()
+        col_offset, row_offset, _ = self.find_sidebar_button(image)
 
         # Close the sidebar
         ActionChains(self.driver).move_to_element_with_offset(
@@ -187,6 +294,7 @@ class NautilusPilot:
 
         self.canvas = self.driver.find_element(By.ID, "earth-canvas")
         self.canvas.click()
+        self.update(is_first=True)
 
     def stop_browser(self):
         self.driver.quit()

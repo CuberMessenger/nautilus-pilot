@@ -12,6 +12,7 @@ from textual.containers import Vertical, Horizontal
 from textual.color import Color
 from textual.reactive import reactive
 
+
 class Wheelhouse(App):
     class State(Enum):
         MAIN = auto()
@@ -180,6 +181,12 @@ class Wheelhouse(App):
             margin-right: 2;
         }
 
+        #pin-remove-from-route-checkbox {
+            width: 44;
+            margin-left: 8;
+            text-align: center;
+        }
+
         #remove-button {
             width: 21;
             margin-left: 9;
@@ -198,6 +205,13 @@ class Wheelhouse(App):
                 Horizontal(
                     Label("     Name:", classes="pin-form-label"),
                     Input(id="remove-name-input", type="text"),
+                ),
+                Horizontal(
+                    Checkbox(
+                        label="Remove from route",
+                        id="pin-remove-from-route-checkbox",
+                        value=False,
+                    ),
                 ),
                 Horizontal(
                     Button("🌟 Remove", id="remove-button", variant="error"),
@@ -248,25 +262,25 @@ class Wheelhouse(App):
         yield Wheelhouse.NewPinForm()
         yield Wheelhouse.RemovePinForm()
         yield Label(id="message-label")
-        yield RichLog()
 
     def on_mount(self):
         # main
         self.main_container = self.query_one("#main-container")
         self.status = self.query_one(Wheelhouse.Status)
 
-        self.switch = self.query_one("#switch-button")
-        self.new_pin = self.query_one("#new-pin-button")
-        self.remove_pin = self.query_one("#remove-pin-button")
-        self.leave = self.query_one("#leave-button")
-        self.main_focusables = [self.switch, self.new_pin, self.remove_pin, self.leave]
+        self.switch_button = self.query_one("#switch-button")
+        self.new_pin_button = self.query_one("#new-pin-button")
+        self.remove_pin_button = self.query_one("#remove-pin-button")
+        self.leave_button = self.query_one("#leave-button")
+        self.main_focusables = [
+            self.switch_button,
+            self.new_pin_button,
+            self.remove_pin_button,
+            self.leave_button,
+        ]
 
         self.message_label = self.query_one("#message-label")
         self.message_label.visible = False
-
-        self.rich_log = self.query_one(RichLog)
-        self.rich_log.can_focus = False
-        self.rich_log.write("Welcome to Nautilus Pilot!")
 
         # new pin form
         self.new_pin_form = self.query_one(Wheelhouse.NewPinForm)
@@ -302,11 +316,15 @@ class Wheelhouse(App):
         self.remove_pin_form = self.query_one(Wheelhouse.RemovePinForm)
         self.remove_pin_form.visible = False
         self.remove_name_input = self.query_one("#remove-name-input")
+        self.remove_from_route_checkbox = self.query_one(
+            "#pin-remove-from-route-checkbox"
+        )
         self.remove_button = self.query_one("#remove-button")
         self.cancel_remove_button = self.query_one("#cancel-remove-button")
 
         self.remove_pin_form_focusables = [
             self.remove_name_input,
+            self.remove_from_route_checkbox,
             self.remove_button,
             self.cancel_remove_button,
         ]
@@ -347,11 +365,11 @@ class Wheelhouse(App):
             case (Wheelhouse.State.NEW_PIN, Wheelhouse.State.MAIN):
                 self.new_pin_form.visible = False
                 self.clear_new_pin_form()
-                self.new_pin.focus()
+                self.new_pin_button.focus()
             case (Wheelhouse.State.REMOVE_PIN, Wheelhouse.State.MAIN):
                 self.remove_pin_form.visible = False
                 self.clear_remove_pin_form()
-                self.remove_pin.focus()
+                self.remove_pin_button.focus()
 
     def update_focusable(self):
         for widget in self.all_focusables:
@@ -377,8 +395,6 @@ class Wheelhouse(App):
         self.focusables[next_focus].focus()
 
     def on_key(self, event):
-        self.rich_log.write(event)
-
         match event.key:
             case "up":
                 if self.state == Wheelhouse.State.NEW_PIN:
@@ -387,8 +403,13 @@ class Wheelhouse(App):
                     self.focusables[go_up_cheatsheet[current_focus]].focus()
                 elif self.state == Wheelhouse.State.REMOVE_PIN:
                     current_focus = self.current_focus()
-                    if current_focus == len(self.remove_pin_form_focusables) - 1:
-                        self.remove_name_input.focus()
+                    if current_focus in [
+                        len(self.remove_pin_form_focusables) - 1,
+                        len(self.remove_pin_form_focusables) - 2,
+                    ]:
+                        self.remove_from_route_checkbox.focus()
+                    else:
+                        self.previous_focus()
                 else:
                     self.previous_focus()
 
@@ -455,12 +476,18 @@ class Wheelhouse(App):
             latitude += float(self.latitude_minutes_input.value) / 60
             if latitude < 0 or latitude > 90:
                 raise ValueError("Latitude out of range!")
+            # North is positive, South is negative
+            if self.latitude_direction_switch.value:
+                latitude = -latitude
 
             longitude = 0
             longitude += float(self.longitude_degress_input.value)
             longitude += float(self.longitude_minutes_input.value) / 60
             if longitude < 0 or longitude > 180:
                 raise ValueError("Longitude out of range!")
+            # East is positive, West is negative
+            if self.longitude_direction_switch.value:
+                longitude = -longitude
 
             add_to_route = self.add_to_route_checkbox.value
             if add_to_route is None:
@@ -478,31 +505,42 @@ class Wheelhouse(App):
 
     def clear_remove_pin_form(self):
         self.remove_name_input.value = ""
+        self.remove_from_route_checkbox.value = False
 
         self.remove_name_input.refresh()
+        self.remove_from_route_checkbox.refresh()
 
     def remove_pin(self):
         try:
             name = self.remove_name_input.value
-            
+            from_route = self.remove_from_route_checkbox.value
+            message = self.natpi.remove_point(name, from_route)
         except Exception:
-            return False
+            return "Error!"
         else:
-            return True
+            return message
 
     ###########################################################################################
 
     async def on_button_pressed(self, event):
         match event.button:
             # main
-            case self.switch:
+            case self.switch_button:
                 self.status.is_online = not self.status.is_online
-            case self.new_pin:
+                if self.status.is_online:
+                    self.natpi.start_browser()
+                else:
+                    self.natpi.stop_browser()
+            case self.new_pin_button:
                 self.change_state(Wheelhouse.State.NEW_PIN)
-            case self.remove_pin:
+            case self.remove_pin_button:
                 self.change_state(Wheelhouse.State.REMOVE_PIN)
-            case self.leave:
-                self.rich_log.write("Leave button pressed!")
+            case self.leave_button:
+                try:
+                    self.natpi.stop_browser()
+                except Exception:
+                    pass
+                self.exit()
             # new pin form
             case self.add_pin_button:
                 success = self.add_pin()
@@ -511,18 +549,22 @@ class Wheelhouse(App):
 
                 if success:
                     self.run_worker(self.show_message("Pin added!"), thread=True)
+                    self.natpi.update()
                 else:
                     self.run_worker(self.show_message("Bad input!"), thread=True)
             case self.cancel_pin_button:
                 self.change_state(Wheelhouse.State.MAIN)
             # remove pin form
             case self.remove_button:
-                # TODO: really search and remove and messaging
-                self.rich_log.write("Remove button pressed!")
+                success, message = self.remove_pin()
+
+                self.change_state(Wheelhouse.State.MAIN)
+
+                self.run_worker(self.show_message(message), thread=True)
+                if success:
+                    self.natpi.update()
             case self.cancel_remove_button:
                 self.change_state(Wheelhouse.State.MAIN)
-            case _:
-                self.rich_log.write("Unknown button pressed!")
 
 
 def main():
