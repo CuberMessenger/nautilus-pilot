@@ -1,15 +1,11 @@
-import os
 import time
 
 from enum import Enum, auto
-
 from natpi import NautilusPilot
 
-from textual import work
 from textual.app import App
-from textual.widgets import Button, Static, RichLog, Input, Label, Checkbox, Switch
+from textual.widgets import Button, Static, Input, Label, Checkbox, Switch
 from textual.containers import Vertical, Horizontal
-from textual.color import Color
 from textual.reactive import reactive
 
 
