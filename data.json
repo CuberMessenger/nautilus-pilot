@@ -1,1 +1,20 @@
-{"points": [{"name": "Test", "latitude": 45.75, "longitude": 0.0}, {"name": "test2", "latitude": 40.0, "longitude": 0.0}, {"name": "NE", "latitude": 10.166666666666666, "longitude": 10.166666666666666}, {"name": "NW", "latitude": 10.166666666666666, "longitude": -10.166666666666666}, {"name": "SE", "latitude": -10.166666666666666, "longitude": 10.166666666666666}, {"name": "SW", "latitude": -10.166666666666666, "longitude": -10.166666666666666}], "route_points": [{"name": "start", "latitude": 50.0, "longitude": 0.0}, {"name": "next", "latitude": 50.0, "longitude": 20.0}, {"name": "aaa", "latitude": 30.5, "longitude": 12.2}, {"name": "22", "latitude": 22.366666666666667, "longitude": 44.733333333333334}]}
+{
+    "points": [
+        {
+            "name": "p1c1: monster spotted here",
+            "latitude": 42.25,
+            "longitude": -60.583333333333336
+        },
+        {
+            "name": "p1c1: Montreal's boat hit reef here",
+            "latitude": 27.5,
+            "longitude": -72.25
+        },
+        {
+            "name": "p1c1: Cunard's boat crashed here",
+            "latitude": 45.61666666666667,
+            "longitude": -15.2
+        }
+    ],
+    "routes": []
+}

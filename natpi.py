@@ -71,42 +71,75 @@ class NautilusPilot:
             )
 
         # routes
-        line = kml.newlinestring(
-            coords=[
-                (point["longitude"], point["latitude"])
-                for point in json_data["route_points"]
-            ],
-        )
+        for route in json_data["routes"]:
+            line = kml.newlinestring(
+                name=route["name"],
+                coords=[
+                    (point["longitude"], point["latitude"])
+                    for point in route["points"]
+                ],
+            )
 
-        line.style.linestyle.color = "FFFEE7A6"
-        line.style.linestyle.width = 4
+            line.style.linestyle.color = "FFFEE7A6"
+            line.style.linestyle.width = 4
 
         kml.save(NautilusPilot.KML_PATH)
 
     @staticmethod
-    def add_point(name, latitude, longitude, add_to_route):
+    def get_route(json, route_name):
+        for r in json["routes"]:
+            if r["name"] == route_name:
+                return r
+        return None
+
+    @staticmethod
+    def add_point(name, route_name, latitude, longitude):
+        """
+        If route is empty, add the point to the point list.
+        If route is not empty, add the point to the route with the given name.
+        New route will be created if the route does not exist.
+        """
         with open(NautilusPilot.JSON_PATH, "r") as json_file:
             json_data = json.load(json_file)
 
         point = {"name": name, "latitude": latitude, "longitude": longitude}
 
-        if not add_to_route:
+        if route_name == "":
             json_data["points"].append(point)
         else:
-            json_data["route_points"].append(point)
+            route = NautilusPilot.get_route(json_data, route_name)
+            if route is None:
+                route = {"name": route_name, "points": []}
+                json_data["routes"].append(route)
+
+            route["points"].append(point)
 
         with open(NautilusPilot.JSON_PATH, "w") as json_file:
             json.dump(json_data, json_file)
 
+        NautilusPilot.update_kml()
+
     @staticmethod
-    def remove_point(name, from_route):
+    def remove_point(name, route_name):
+        """
+        If route is empty, remove from the point list.
+        If route is not empty, remove from the route with the given name.
+        If route does not exist, return False.
+
+        If name is empty, remove the last point.
+        If name is not empty, remove the last occurrence of the name.
+        """
         with open(NautilusPilot.JSON_PATH, "r") as json_file:
             json_data = json.load(json_file)
 
-        if not from_route:
+        route = None
+        if route_name == "":
             points = json_data["points"]
         else:
-            points = json_data["route_points"]
+            route = NautilusPilot.get_route(json_data, route_name)
+            if route is None:
+                return False, "No such route!"
+            points = route["points"]
 
         if name == "":
             # try to remove the last point
@@ -117,7 +150,7 @@ class NautilusPilot:
                 message = "Last pin removed!"
             else:
                 success = False
-                message = "No pins to remove!"
+                message = "No pin to remove!"
         if name != "":
             # remove the last occurrence
             index = None
@@ -134,9 +167,14 @@ class NautilusPilot:
                 success = True
                 message = f"{name} removed!"
 
+        if route is not None:
+            if len(route["points"]) == 0:
+                json_data["routes"].remove(route)
+
         with open(NautilusPilot.JSON_PATH, "w") as json_file:
             json.dump(json_data, json_file)
 
+        NautilusPilot.update_kml()
         return success, message
 
     def __init__(self):
@@ -409,18 +447,17 @@ class Wheelhouse(App):
             margin-right: 2;
         }
 
+        #pin-route-input {
+            width: 44;
+            margin-right: 2;
+        }
+
         #pin-latitude-input {
             width: 46;
         }
 
         #pin-longitude-input {
             width: 46;
-        }
-
-        #pin-add-to-route-checkbox {
-            width: 44;
-            margin-left: 8;
-            text-align: center;
         }
 
         #add-pin-button {
@@ -447,17 +484,16 @@ class Wheelhouse(App):
                     Input(id="pin-name-input", type="text"),
                 ),
                 Horizontal(
+                    Label("    Route:", classes="pin-form-label"),
+                    Input(id="pin-route-input", type="text"),
+                ),
+                Horizontal(
                     Label(" Latitude:", classes="pin-form-label"),
                     Wheelhouse.ItudeInput(type="latitude", id="pin-latitude-input"),
                 ),
                 Horizontal(
                     Label("Longitude:", classes="pin-form-label"),
                     Wheelhouse.ItudeInput(type="longitude", id="pin-longitude-input"),
-                ),
-                Horizontal(
-                    Checkbox(
-                        label="Add to route", id="pin-add-to-route-checkbox", value=True
-                    ),
                 ),
                 Horizontal(
                     Button("🌟 Add", id="add-pin-button", variant="success"),
@@ -477,10 +513,9 @@ class Wheelhouse(App):
             margin-right: 2;
         }
 
-        #pin-remove-from-route-checkbox {
+        #remove-route-input {
             width: 44;
-            margin-left: 8;
-            text-align: center;
+            margin-right: 2;
         }
 
         #remove-button {
@@ -503,11 +538,8 @@ class Wheelhouse(App):
                     Input(id="remove-name-input", type="text"),
                 ),
                 Horizontal(
-                    Checkbox(
-                        label="Remove from route",
-                        id="pin-remove-from-route-checkbox",
-                        value=False,
-                    ),
+                    Label("    Route:", classes="pin-form-label"),
+                    Input(id="remove-route-input", type="text"),
                 ),
                 Horizontal(
                     Button("🌟 Remove", id="remove-button", variant="error"),
@@ -582,6 +614,7 @@ class Wheelhouse(App):
         self.new_pin_form = self.query_one(Wheelhouse.NewPinForm)
         self.new_pin_form.visible = False
         self.name_input = self.query_one("#pin-name-input")
+        self.route_input = self.query_one("#pin-route-input")
 
         self.latitude_degress_input = self.query_one("#latitude-degree-input")
         self.latitude_minutes_input = self.query_one("#latitude-minute-input")
@@ -591,19 +624,18 @@ class Wheelhouse(App):
         self.longitude_minutes_input = self.query_one("#longitude-minute-input")
         self.longitude_direction_switch = self.query_one("#longitude-direction-switch")
 
-        self.add_to_route_checkbox = self.query_one("#pin-add-to-route-checkbox")
         self.add_pin_button = self.query_one("#add-pin-button")
         self.cancel_pin_button = self.query_one("#cancel-pin-button")
 
         self.new_pin_form_focusables = [
             self.name_input,
+            self.route_input,
             self.latitude_degress_input,
             self.latitude_minutes_input,
             self.latitude_direction_switch,
             self.longitude_degress_input,
             self.longitude_minutes_input,
             self.longitude_direction_switch,
-            self.add_to_route_checkbox,
             self.add_pin_button,
             self.cancel_pin_button,
         ]
@@ -612,15 +644,13 @@ class Wheelhouse(App):
         self.remove_pin_form = self.query_one(Wheelhouse.RemovePinForm)
         self.remove_pin_form.visible = False
         self.remove_name_input = self.query_one("#remove-name-input")
-        self.remove_from_route_checkbox = self.query_one(
-            "#pin-remove-from-route-checkbox"
-        )
+        self.remove_route_input = self.query_one("#remove-route-input")
         self.remove_button = self.query_one("#remove-button")
         self.cancel_remove_button = self.query_one("#cancel-remove-button")
 
         self.remove_pin_form_focusables = [
             self.remove_name_input,
-            self.remove_from_route_checkbox,
+            self.remove_route_input,
             self.remove_button,
             self.cancel_remove_button,
         ]
@@ -694,24 +724,19 @@ class Wheelhouse(App):
         match event.key:
             case "up":
                 if self.state == Wheelhouse.State.NEW_PIN:
-                    go_up_cheatsheet = [0, 0, 0, 0, 1, 2, 3, 4, 7, 7]
+                    go_up_cheatsheet = [0, 0, 1, 1, 1, 2, 3, 4, 5, 5]
                     current_focus = self.current_focus()
                     self.focusables[go_up_cheatsheet[current_focus]].focus()
                 elif self.state == Wheelhouse.State.REMOVE_PIN:
+                    go_up_cheatsheet = [0, 0, 1, 1]
                     current_focus = self.current_focus()
-                    if current_focus in [
-                        len(self.remove_pin_form_focusables) - 1,
-                        len(self.remove_pin_form_focusables) - 2,
-                    ]:
-                        self.remove_from_route_checkbox.focus()
-                    else:
-                        self.previous_focus()
+                    self.focusables[go_up_cheatsheet[current_focus]].focus()
                 else:
                     self.previous_focus()
 
             case "down":
                 if self.state == Wheelhouse.State.NEW_PIN:
-                    go_down_cheatsheet = [1, 4, 5, 6, 7, 7, 7, 8, 9, 9]
+                    go_down_cheatsheet = [1, 2, 5, 6, 7, 8, 8, 8, 9, 9]
                     current_focus = self.current_focus()
                     self.focusables[go_down_cheatsheet[current_focus]].focus()
                 else:
@@ -744,28 +769,27 @@ class Wheelhouse(App):
     ### new pin form funtions #################################################################
     def clear_new_pin_form(self):
         self.name_input.value = ""
+        self.route_input.value = ""
         self.latitude_degress_input.value = ""
         self.latitude_minutes_input.value = ""
         self.latitude_direction_switch.value = False
         self.longitude_degress_input.value = ""
         self.longitude_minutes_input.value = ""
         self.longitude_direction_switch.value = False
-        self.add_to_route_checkbox.value = False
 
         self.name_input.refresh()
+        self.route_input.refresh()
         self.latitude_degress_input.refresh()
         self.latitude_minutes_input.refresh()
         self.latitude_direction_switch.refresh()
         self.longitude_degress_input.refresh()
         self.longitude_minutes_input.refresh()
         self.longitude_direction_switch.refresh()
-        self.add_to_route_checkbox.refresh()
 
     def add_pin(self):
         try:
             name = self.name_input.value
-            if name is None:
-                name = ""
+            route = self.route_input.value
 
             latitude = 0
             latitude += float(self.latitude_degress_input.value)
@@ -785,11 +809,7 @@ class Wheelhouse(App):
             if self.longitude_direction_switch.value:
                 longitude = -longitude
 
-            add_to_route = self.add_to_route_checkbox.value
-            if add_to_route is None:
-                add_to_route = False
-
-            self.natpi.add_point(name, latitude, longitude, add_to_route)
+            self.natpi.add_point(name, route, latitude, longitude)
 
         except Exception:
             return False
@@ -801,16 +821,16 @@ class Wheelhouse(App):
 
     def clear_remove_pin_form(self):
         self.remove_name_input.value = ""
-        self.remove_from_route_checkbox.value = False
+        self.remove_route_input.value = ""
 
         self.remove_name_input.refresh()
-        self.remove_from_route_checkbox.refresh()
+        self.remove_route_input.refresh()
 
     def remove_pin(self):
         try:
             name = self.remove_name_input.value
-            from_route = self.remove_from_route_checkbox.value
-            message = self.natpi.remove_point(name, from_route)
+            route = self.remove_route_input.value
+            message = self.natpi.remove_point(name, route)
         except Exception:
             return "Error!"
         else:

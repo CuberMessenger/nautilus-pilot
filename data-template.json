@@ -6,16 +6,21 @@
             "latitude": 0.0
         }
     ],
-    "route_points": [
+    "routes": [
         {
-            "name": "point_name",
-            "longitude": 10.0,
-            "latitude": -10.0
-        },
-        {
-            "name": "point_name",
-            "longitude": -10.0,
-            "latitude": 10.0
+            "name": "route_name",
+            "points": [
+                {
+                    "name": "point_name",
+                    "longitude": 0.0,
+                    "latitude": 0.0
+                },
+                {
+                    "name": "point_name",
+                    "longitude": 0.0,
+                    "latitude": 0.0
+                }
+            ]
         }
     ]
 }
