@@ -166,3 +166,4 @@ cython_debug/
 *.yaml
 *.txt
 data.json
+data.json
