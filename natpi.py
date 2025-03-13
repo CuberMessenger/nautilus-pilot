@@ -15,11 +15,16 @@ from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
 
 from textual.app import App
 from textual.widgets import Button, Static, Input, Label, Checkbox, Switch
 from textual.containers import Vertical, Horizontal
 from textual.reactive import reactive
+
+
+def color_manhattan(c1, c2):
+    return np.sum(abs(c1[i] - c2[i]) for i in range(3))
 
 
 class NautilusPilot:
@@ -56,8 +61,7 @@ class NautilusPilot:
 
     KML_PATH = "data.kml"
 
-    @staticmethod
-    def update_kml():
+    def update_kml(self):
         with open(NautilusPilot.JSON_PATH, "r") as json_file:
             json_data = json.load(json_file)
 
@@ -75,8 +79,7 @@ class NautilusPilot:
             line = kml.newlinestring(
                 name=route["name"],
                 coords=[
-                    (point["longitude"], point["latitude"])
-                    for point in route["points"]
+                    (point["longitude"], point["latitude"]) for point in route["points"]
                 ],
             )
 
@@ -85,15 +88,13 @@ class NautilusPilot:
 
         kml.save(NautilusPilot.KML_PATH)
 
-    @staticmethod
-    def get_route(json, route_name):
+    def get_route(self, json, route_name):
         for r in json["routes"]:
             if r["name"] == route_name:
                 return r
         return None
 
-    @staticmethod
-    def add_point(name, route_name, latitude, longitude):
+    def add_point(self, name, route_name, latitude, longitude):
         """
         If route is empty, add the point to the point list.
         If route is not empty, add the point to the route with the given name.
@@ -107,7 +108,7 @@ class NautilusPilot:
         if route_name == "":
             json_data["points"].append(point)
         else:
-            route = NautilusPilot.get_route(json_data, route_name)
+            route = self.get_route(json_data, route_name)
             if route is None:
                 route = {"name": route_name, "points": []}
                 json_data["routes"].append(route)
@@ -117,10 +118,9 @@ class NautilusPilot:
         with open(NautilusPilot.JSON_PATH, "w") as json_file:
             json.dump(json_data, json_file)
 
-        NautilusPilot.update_kml()
+        self.update_kml()
 
-    @staticmethod
-    def remove_point(name, route_name):
+    def remove_point(self, name, route_name):
         """
         If route is empty, remove from the point list.
         If route is not empty, remove from the route with the given name.
@@ -129,14 +129,14 @@ class NautilusPilot:
         If name is empty, remove the last point.
         If name is not empty, remove the last occurrence of the name.
         """
-        with open(NautilusPilot.JSON_PATH, "r") as json_file:
+        with open(self.JSON_PATH, "r") as json_file:
             json_data = json.load(json_file)
 
         route = None
         if route_name == "":
             points = json_data["points"]
         else:
-            route = NautilusPilot.get_route(json_data, route_name)
+            route = self.get_route(json_data, route_name)
             if route is None:
                 return False, "No such route!"
             points = route["points"]
@@ -174,14 +174,17 @@ class NautilusPilot:
         with open(NautilusPilot.JSON_PATH, "w") as json_file:
             json.dump(json_data, json_file)
 
-        NautilusPilot.update_kml()
+        self.update_kml()
+
         return success, message
 
     def __init__(self):
         self.driver = None
         self.canvas = None
 
-    # DEPRECATED
+        self.kml_profile_col_offset = 0
+        self.kml_profile_row_offset = 0
+
     def screenshot(self):
         image_data = self.driver.get_screenshot_as_png()
         image = Image.open(io.BytesIO(image_data))
@@ -189,10 +192,11 @@ class NautilusPilot:
 
         return image
 
-    # DEPRECATED
-    def find_sidebar_button(self, image):
-        pixel_tolerance = 10
-        default_gray = np.array([70, 71, 68])
+    def find_kml_profile(self, image):
+        pixel_tolerance = 9
+        gray_bar_color = np.array([225, 227, 225])
+        white_color = np.array([255, 255, 255])
+        kml_icon_color = np.array([68, 71, 70])
 
         height, width, _ = image.shape
         canvas_height, canvas_width = (
@@ -200,69 +204,29 @@ class NautilusPilot:
             self.canvas.size["width"],
         )
 
-        top_bar_height = 72
-        # top_bar_height = 0
-        # while (image[top_bar_height, -1] == 255).all():
-        #     top_bar_height += 1
+        gray_bar_head_y = 0
+        while (
+            color_manhattan(image[gray_bar_head_y, width // 2], gray_bar_color)
+            > pixel_tolerance
+        ):
+            gray_bar_head_y += 1
 
-        # image = image[top_bar_height:, :, :]
+        gray_bar_head_x = width // 2
+        while (
+            color_manhattan(image[gray_bar_head_y, gray_bar_head_x], white_color)
+            > pixel_tolerance
+        ):
+            gray_bar_head_x -= 2
 
-        col = 0
-        row = int(round((height - top_bar_height) / 2 + top_bar_height))
-        for try_col in range(width // 2):
-            if np.sum(np.abs(image[row, try_col] - default_gray)) < pixel_tolerance:
-                col = try_col
-                break
-            # image[row, try_col] = np.array([0, 255, 0])
+        while (
+            color_manhattan(image[gray_bar_head_y, gray_bar_head_x], kml_icon_color)
+            > pixel_tolerance
+        ):
+            gray_bar_head_y += 2
+            gray_bar_head_x += 2
 
-        # Image.fromarray(image).save("test-sidebar.png")
-
-        if col == 0:
-            raise Exception("Could not find the sidebar button!")
-
-        is_open = col > top_bar_height
-
-        col = int(round(col * canvas_width / width))
-        row = int(round(row * canvas_height / height))
-
-        col_offset = col - canvas_width // 2
-        row_offset = row - canvas_height // 2
-        return col_offset, row_offset, is_open
-
-    # DEPRECATED
-    def find_hide_button(self, image):
-        pixel_tolerance = 10
-        dark_gray = np.array([31, 31, 31])
-        light_gray = np.array([233, 233, 233])
-        white = np.array([255, 255, 255])
-
-        height, width, _ = image.shape
-        canvas_height, canvas_width = (
-            self.canvas.size["height"],
-            self.canvas.size["width"],
-        )
-
-        top_bar_height = 72
-
-        col = 52
-        row = int(round((height - top_bar_height) / 2 + top_bar_height))
-        for offset in range(256):
-            if np.sum(np.abs(image[row + offset, col] - dark_gray)) < pixel_tolerance:
-                break
-            # image[row + offset, col] = np.array([255, 0, 0])
-        row += offset
-
-        for offset in range(512):
-            if np.sum(np.abs(image[row, col + offset] - white)) < pixel_tolerance:
-                break
-            # image[row, col + offset] = np.array([255, 0, 0])
-        col += offset
-
-        col -= 32
-
-        # length = 5
-        # image[row - length : row + length, col - length : col + length] = np.array([255, 0, 0])
-        # Image.fromarray(image).save("test-hide.png")
+        col = gray_bar_head_x
+        row = gray_bar_head_y
 
         col = int(round(col * canvas_width / width))
         row = int(round(row * canvas_height / height))
@@ -270,40 +234,23 @@ class NautilusPilot:
         col_offset = col - canvas_width // 2
         row_offset = row - canvas_height // 2
 
-        return col_offset, row_offset
+        self.kml_profile_col_offset = col_offset
+        self.kml_profile_row_offset = row_offset
 
-    # DEPRECATED
     def update(self, is_first=False):
         if self.driver is None or self.canvas is None:
             return
 
-        NautilusPilot.update_kml()
+        if is_first:
+            image = self.screenshot()
+            self.find_kml_profile(image)
+
+        if not is_first:
+            ActionChains(self.driver).send_keys("\ue00c").perform()
 
         with open(NautilusPilot.KML_PATH, mode="r") as file:
             content = file.read()
             b64_content = base64.b64encode(content.encode()).decode()
-
-        image = self.screenshot()
-        col_offset, row_offset, is_open = self.find_sidebar_button(image)
-
-        if not is_open:
-            # Open the sidebar
-            ActionChains(self.driver).move_to_element_with_offset(
-                self.canvas, col_offset, row_offset
-            ).click().perform()
-            sleep(0.5)  # wait the sidebar fully open
-
-            image = self.screenshot()
-
-        if not is_first:
-            hide_col_offset, hide_row_offset = self.find_hide_button(image)
-            try:
-                # Try hide existing route
-                ActionChains(self.driver).move_to_element_with_offset(
-                    self.canvas, hide_col_offset, hide_row_offset
-                ).click().perform()
-            except:
-                pass
 
         self.driver.execute_script(
             NautilusPilot.JS_DRAG_AND_DROP.format(
@@ -312,11 +259,9 @@ class NautilusPilot:
             self.canvas,
         )
 
-        col_offset, row_offset, _ = self.find_sidebar_button(image)
-
-        # Close the sidebar
+        sleep(0.3)
         ActionChains(self.driver).move_to_element_with_offset(
-            self.canvas, col_offset, row_offset
+            self.canvas, self.kml_profile_col_offset, self.kml_profile_row_offset
         ).click().perform()
 
     def start_browser(self):
@@ -333,13 +278,15 @@ class NautilusPilot:
         self.driver = webdriver.Edge(service=service, options=options)
         self.driver.get("https://earth.google.com/web")
 
-        # WebDriverWait(self.driver, 30).until(
-        #     lambda driver: driver.current_url.find("@") != -1
-        # )
+        WebDriverWait(self.driver, 30).until(
+            lambda driver: driver.current_url.find("@") != -1
+        )
 
-        # self.canvas = self.driver.find_element(By.ID, "earth-canvas")
+        self.canvas = self.driver.find_element(By.ID, "earth-canvas")
         # self.canvas.click()
-        # self.update(is_first=True)
+
+        self.update_kml()
+        self.update(is_first=True)
 
     def stop_browser(self):
         self.driver.quit()
