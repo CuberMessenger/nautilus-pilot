@@ -188,6 +188,7 @@ class NautilusPilot:
     def screenshot(self):
         image_data = self.driver.get_screenshot_as_png()
         image = Image.open(io.BytesIO(image_data))
+        # image.save("screenshot.png")
         image = np.array(image)
 
         return image
@@ -247,6 +248,8 @@ class NautilusPilot:
 
         if not is_first:
             ActionChains(self.driver).send_keys("\ue00c").perform()
+            ActionChains(self.driver).send_keys("\ue00c").perform()
+            ActionChains(self.driver).send_keys("\ue00c").perform()
 
         with open(NautilusPilot.KML_PATH, mode="r") as file:
             content = file.read()
@@ -278,6 +281,7 @@ class NautilusPilot:
         self.driver = webdriver.Edge(service=service, options=options)
         self.driver.get("https://earth.google.com/web")
 
+        sleep(3)
         WebDriverWait(self.driver, 30).until(
             lambda driver: driver.current_url.find("@") != -1
         )
